@@ -66,6 +66,13 @@
         .arch-pill { background: #5C5028; color: white; padding: 3px 9px; border-radius: 9px; font-size: 0.75rem; font-weight: bold; display: inline-block; }
         .count-badge { background: #4E4322; color: white; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.9rem; }
 
+        /* Avatar & Documents */
+        .avatar-img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 2px solid var(--gold-color); flex-shrink: 0; background: #EEE; }
+        .avatar-fallback { width: 48px; height: 48px; border-radius: 50%; background: var(--header-bg); color: var(--gold-color); border: 2px solid var(--gold-color); display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.05rem; flex-shrink: 0; }
+        .profile-preview-box { display: flex; align-items: center; gap: 12px; background: #FAF8F2; border: 1px solid #E5DFD0; border-radius: 12px; padding: 10px; margin-bottom: 10px; }
+        .doc-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: #FAF8F2; border: 1px solid #E5DFD0; border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; font-size: 0.84rem; }
+        .doc-thumb { width: 42px; height: 42px; border-radius: 8px; object-fit: cover; border: 1px solid #CCC; flex-shrink: 0; }
+
         /* Grids & Controls */
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
@@ -367,6 +374,22 @@
 
             <div class="card">
                 <h4 style="color:var(--card-green); margin-bottom:10px;">1. المعلومات الشخصية والدراسية</h4>
+
+                <!-- صورة البروفيل -->
+                <div class="profile-preview-box">
+                    <div id="f_avatarPreview" class="avatar-fallback">?</div>
+                    <div style="flex:1;">
+                        <div style="font-weight:800; font-size:0.86rem; margin-bottom:6px;">صورة البروفيل (تبان فاللّيستة)</div>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <label class="btn btn-gold" style="padding:6px 10px; font-size:0.78rem; cursor:pointer;">
+                                📷 تصوير / اختيار صورة
+                                <input type="file" id="f_avatarInput" accept="image/*" capture="environment" class="hidden" onchange="handleAvatarUpload(event)">
+                            </label>
+                            <button type="button" id="f_removeAvatarBtn" class="btn btn-danger hidden" style="padding:6px 9px; font-size:0.78rem;" onclick="removeAvatarPhoto()">حذف الصورة</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="input-group">
                     <label>كود المتدرب / Code Stagiaire *</label>
                     <div style="display:flex; gap:8px;">
@@ -376,7 +399,7 @@
                 </div>
                 <div class="input-group">
                     <label>الاسم الكامل *</label>
-                    <input type="text" id="f_name" placeholder="مثال: سارة العلوي">
+                    <input type="text" id="f_name" placeholder="مثال: سارة العلوي" oninput="refreshFormAvatarPreview()">
                 </div>
                 <div class="grid-2">
                     <div class="input-group">
@@ -408,6 +431,31 @@
                         <input type="date" id="f_regDate" oninput="onRegDateChange()" onchange="onRegDateChange()" onblur="onRegDateChange()">
                     </div>
                 </div>
+            </div>
+
+            <!-- أرشيف وثائق المتدرب -->
+            <div class="card">
+                <h4 style="color:var(--card-green); margin-bottom:10px;">📁 أرشيف وثائق المتدرب (بطاقة وطنية، شهادة مدرسية...)</h4>
+                <div class="grid-2">
+                    <div class="input-group">
+                        <label>نوع الوثيقة</label>
+                        <select id="f_docType">
+                            <option value="البطاقة الوطنية (CIN)">البطاقة الوطنية (CIN)</option>
+                            <option value="الشهادة المدرسية">الشهادة المدرسية</option>
+                            <option value="وصل أداء / التزام">وصل أداء / التزام</option>
+                            <option value="وثيقة أخرى">وثيقة أخرى</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label>إضافة وثيقة (صورة أو PDF)</label>
+                        <label class="btn btn-green" style="width:100%; padding:9px; cursor:pointer;">
+                            📎 سكاني / ارفع وثيقة
+                            <input type="file" id="f_docInput" accept="image/*,application/pdf" capture="environment" class="hidden" onchange="handleDocUpload(event)">
+                        </label>
+                    </div>
+                </div>
+                <div id="f_docStatus" style="font-size:0.78rem; color:#555; margin-bottom:8px;"></div>
+                <div id="f_docsList"></div>
             </div>
 
             <div class="card">
@@ -451,6 +499,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyA0k5IZP-3mkNECC2ZZeU1K0abP_XIWHCA",
@@ -464,6 +513,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
+        const storage = getStorage(app);
         const cloudDocRef = doc(db, "alaska_app_data", "main_state");
 
         function getTodayStr() {
@@ -530,7 +580,10 @@
                 months: ["أكتوبر 2026"],
                 note: "ناقصاه نسخة من لاكارط ناسيونال",
                 diploma: false,
-                diplomaDate: ""
+                diplomaDate: "",
+                photoUrl: "",
+                photoPath: "",
+                documents: []
             },
             {
                 id: 2,
@@ -548,7 +601,10 @@
                 months: ["نونبر 2026"],
                 note: "",
                 diploma: false,
-                diplomaDate: ""
+                diplomaDate: "",
+                photoUrl: "",
+                photoPath: "",
+                documents: []
             },
             {
                 id: 3,
@@ -566,7 +622,10 @@
                 months: getStudentMonths("2026-01-10"),
                 note: "Formation",
                 diploma: true,
-                diplomaDate: ""
+                diplomaDate: "",
+                photoUrl: "",
+                photoPath: "",
+                documents: []
             }
         ];
 
@@ -583,12 +642,178 @@
 
         let formMode = "create";
         let editingStudentId = null;
-        let formState = { regFee: false, examFee: false, months: [] };
+        let formState = { regFee: false, examFee: false, months: [], photoUrl: "", photoPath: "", documents: [] };
 
         let walletFilter = "week";
         let pickedStudentId = null;
         let selectedItemsToPay = { regFee: false, examFee: false, months: [] };
         let isApplyingCloudUpdate = false;
+
+        function getInitials(name) {
+            const clean = (name || "").trim();
+            return clean ? clean[0].toUpperCase() : "؟";
+        }
+
+        function renderAvatarHtml(student) {
+            if (student && student.photoUrl) {
+                return `<img src="${student.photoUrl}" alt="${student.name || ""}" class="avatar-img">`;
+            }
+            return `<div class="avatar-fallback">${getInitials(student ? student.name : "")}</div>`;
+        }
+
+        function compressImageFile(file, maxSize = 640, quality = 0.75) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        let w = img.width;
+                        let h = img.height;
+                        if (w > maxSize || h > maxSize) {
+                            if (w > h) {
+                                h = Math.round((h * maxSize) / w);
+                                w = maxSize;
+                            } else {
+                                w = Math.round((w * maxSize) / h);
+                                h = maxSize;
+                            }
+                        }
+                        const canvas = document.createElement("canvas");
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext("2d");
+                        ctx.drawImage(img, 0, 0, w, h);
+                        canvas.toBlob((blob) => {
+                            if (blob) resolve(blob);
+                            else reject(new Error("فشل ضغط الصورة"));
+                        }, "image/jpeg", quality);
+                    };
+                    img.onerror = reject;
+                    img.src = ev.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        async function uploadToStorage(blobOrFile, folder, fileName) {
+            const safeName = `${Date.now()}_${fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+            const storagePath = `alaska_students/${folder}/${safeName}`;
+            const storageRef = ref(storage, storagePath);
+            await uploadBytes(storageRef, blobOrFile);
+            const url = await getDownloadURL(storageRef);
+            return { url, path: storagePath };
+        }
+
+        function refreshFormAvatarPreview() {
+            const box = document.getElementById("f_avatarPreview");
+            const removeBtn = document.getElementById("f_removeAvatarBtn");
+            const nameVal = document.getElementById("f_name")?.value || "";
+            if (!box) return;
+
+            if (formState.photoUrl) {
+                box.outerHTML = `<img id="f_avatarPreview" src="${formState.photoUrl}" alt="صورة البروفيل" class="avatar-img">`;
+                if (removeBtn) removeBtn.classList.remove("hidden");
+            } else {
+                box.outerHTML = `<div id="f_avatarPreview" class="avatar-fallback">${getInitials(nameVal)}</div>`;
+                if (removeBtn) removeBtn.classList.add("hidden");
+            }
+        }
+
+        async function handleAvatarUpload(event) {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+
+            const statusEl = document.getElementById("f_docStatus");
+            if (statusEl) statusEl.textContent = "⏳ كيترفع صورة البروفيل...";
+            try {
+                const compressed = await compressImageFile(file, 480, 0.75);
+                const studentKey = editingStudentId || "temp";
+                const uploaded = await uploadToStorage(compressed, `${studentKey}/avatar`, "avatar.jpg");
+                formState.photoUrl = uploaded.url;
+                formState.photoPath = uploaded.path;
+                refreshFormAvatarPreview();
+                if (statusEl) statusEl.textContent = "✓ تم رفع صورة البروفيل (اضغط حفظ المعلومات لتثبيتها).";
+            } catch (err) {
+                console.error("Avatar upload failed:", err);
+                if (statusEl) statusEl.textContent = "";
+                alert("تعذر رفع الصورة. تأكد من تفعيل Storage في Firebase Console.");
+            }
+        }
+
+        function removeAvatarPhoto() {
+            formState.photoUrl = "";
+            formState.photoPath = "";
+            refreshFormAvatarPreview();
+        }
+
+        async function handleDocUpload(event) {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (!file) return;
+
+            const docType = document.getElementById("f_docType")?.value || "وثيقة";
+            const statusEl = document.getElementById("f_docStatus");
+            if (statusEl) statusEl.textContent = `⏳ كيترفع ${docType}...`;
+
+            try {
+                let toUpload = file;
+                let finalName = file.name;
+                const isImage = file.type && file.type.startsWith("image/");
+                if (isImage) {
+                    toUpload = await compressImageFile(file, 1024, 0.78);
+                    finalName = `${docType}.jpg`;
+                }
+                const studentKey = editingStudentId || "temp";
+                const uploaded = await uploadToStorage(toUpload, `${studentKey}/docs`, finalName);
+                formState.documents.push({
+                    id: Date.now(),
+                    type: docType,
+                    name: file.name,
+                    isImage: Boolean(isImage),
+                    url: uploaded.url,
+                    path: uploaded.path,
+                    addedAt: getTodayStr()
+                });
+                renderFormDocsList();
+                if (statusEl) statusEl.textContent = `✓ تمت إضافة "${docType}" (اضغط حفظ المعلومات لتثبيتها).`;
+            } catch (err) {
+                console.error("Doc upload failed:", err);
+                if (statusEl) statusEl.textContent = "";
+                alert("تعذر رفع الوثيقة. تأكد من تفعيل Storage في Firebase Console.");
+            }
+        }
+
+        function removeFormDoc(docId) {
+            formState.documents = (formState.documents || []).filter(d => String(d.id) !== String(docId));
+            renderFormDocsList();
+        }
+
+        function renderFormDocsList() {
+            const listEl = document.getElementById("f_docsList");
+            if (!listEl) return;
+            const docs = Array.isArray(formState.documents) ? formState.documents : [];
+            if (!docs.length) {
+                listEl.innerHTML = `<p style="font-size:0.8rem; color:#777;">ما كاينة حتى وثيقة مرفوعة لهاد المتدرب دابا.</p>`;
+                return;
+            }
+            listEl.innerHTML = docs.map(d => `
+                <div class="doc-item">
+                    <div style="display:flex; align-items:center; gap:8px; min-width:0;">
+                        ${d.isImage ? `<img src="${d.url}" alt="${d.type}" class="doc-thumb">` : `<span style="font-size:1.3rem;">📄</span>`}
+                        <div style="min-width:0;">
+                            <div style="font-weight:800; font-size:0.84rem;">${d.type}</div>
+                            <div style="font-size:0.74rem; color:#666; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${d.name || ""} • ${formatDateDMY(d.addedAt)}</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:5px; flex-shrink:0;">
+                        <a class="btn btn-outline" style="padding:5px 8px; font-size:0.75rem;" target="_blank" href="${d.url}">عرض</a>
+                        <button type="button" class="btn btn-danger" style="padding:5px 8px; font-size:0.75rem;" onclick="removeFormDoc(${d.id})">✕</button>
+                    </div>
+                </div>
+            `).join("");
+        }
 
         function setSyncBadge(text) {
             const el = document.getElementById("cloudSyncStatus");
@@ -948,6 +1173,8 @@
             editingStudentId = id;
             const todayStr = getTodayStr();
             document.getElementById("formModal").classList.remove("hidden");
+            const statusEl = document.getElementById("f_docStatus");
+            if (statusEl) statusEl.textContent = "";
 
             if (mode === "create") {
                 document.getElementById("formTitle").textContent = "تسجيل جديد";
@@ -963,7 +1190,7 @@
                 document.getElementById("f_note").value = "";
                 document.getElementById("f_diplomaDate").value = "";
                 document.getElementById("f_diploma").checked = false;
-                formState = { regFee: false, examFee: false, months: [] };
+                formState = { regFee: false, examFee: false, months: [], photoUrl: "", photoPath: "", documents: [] };
             } else {
                 const s = students.find(x => x.id === id);
                 if (!s) return;
@@ -983,9 +1210,14 @@
                 formState = {
                     regFee: Boolean(s.regFee),
                     examFee: Boolean(s.examFee),
-                    months: Array.isArray(s.months) ? [...s.months] : []
+                    months: Array.isArray(s.months) ? [...s.months] : [],
+                    photoUrl: s.photoUrl || "",
+                    photoPath: s.photoPath || "",
+                    documents: Array.isArray(s.documents) ? [...s.documents] : []
                 };
             }
+            refreshFormAvatarPreview();
+            renderFormDocsList();
             updateFeeUI();
             buildMonthsGrid();
             updateFormSummary();
@@ -1027,7 +1259,10 @@
                 months: cleanMonths,
                 note: document.getElementById("f_note").value.trim(),
                 diploma: isDip,
-                diplomaDate: dipDate
+                diplomaDate: dipDate,
+                photoUrl: formState.photoUrl || "",
+                photoPath: formState.photoPath || "",
+                documents: Array.isArray(formState.documents) ? [...formState.documents] : []
             };
 
             if (formMode === "create") {
@@ -1041,11 +1276,22 @@
             renderEverything();
         }
 
-        function deleteStudentPermanently(id) {
+        async function deleteStudentPermanently(id) {
             const target = students.find(s => s.id === id);
             const label = target ? target.name : "هاد المتدرب";
             const ok = confirm(`واش متأكد بغيتي تمسح "${label}" نهائياً من قاعدة البيانات ومعلوماتو كاملة؟`);
             if (!ok) return;
+
+            if (target) {
+                const paths = [];
+                if (target.photoPath) paths.push(target.photoPath);
+                if (Array.isArray(target.documents)) {
+                    target.documents.forEach(d => { if (d && d.path) paths.push(d.path); });
+                }
+                for (const p of paths) {
+                    try { await deleteObject(ref(storage, p)); } catch (_) {}
+                }
+            }
 
             students = students.filter(s => s.id !== id);
             payments = payments.filter(p => String(p.studentId) !== String(id));
@@ -1082,19 +1328,25 @@
                 const validSet = new Set(getStudentMonths(s.regDate));
                 const monthsCount = Array.isArray(s.months) ? s.months.filter(m => validSet.has(m)).length : 0;
                 const paid = monthsCount + (s.regFee ? 1 : 0) + (s.examFee ? 1 : 0);
+                const docsCount = Array.isArray(s.documents) ? s.documents.length : 0;
                 const wa = toWaNumber(s.phone);
                 return `
                     <div class="card">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                            <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+                                ${renderAvatarHtml(s)}
+                                <div style="min-width:0;">
+                                    <h3 style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.name}</h3>
+                                    <small style="color:#666;">📱 ${s.phone} ${s.cin ? `• CIN: ${s.cin}` : ""}</small>
+                                </div>
+                            </div>
                             <span class="badge-code"># ${s.code}</span>
-                            <h3>${s.name}</h3>
                         </div>
-                        <p style="color:#555; margin-top:6px;">📱 ${s.phone} ${s.cin ? `• CIN: ${s.cin}` : ""}</p>
-                        <p style="color:#666; font-size:0.82rem; margin-top:3px;">الخلاص: ${paid}/14 • التسجيل: ${formatDateDMY(s.regDate)}</p>
+                        <p style="color:#666; font-size:0.82rem; margin-top:8px;">الخلاص: ${paid}/14 • التسجيل: ${formatDateDMY(s.regDate)} ${docsCount ? `• 📁 ${docsCount} وثائق` : ""}</p>
                         ${s.note ? `<p style="background:#FAF8F2; padding:6px 8px; border-radius:8px; font-size:0.82rem; margin-top:6px;">📝 ${s.note}</p>` : ""}
                         <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
                             ${wa ? `<a class="btn btn-whatsapp" target="_blank" href="https://wa.me/${wa}">واتساب</a>` : ""}
-                            <button class="btn btn-outline" onclick="openStudentForm('edit', ${s.id})">✏️ تعديل</button>
+                            <button class="btn btn-outline" onclick="openStudentForm('edit', ${s.id})">✏️ تعديل / الوثائق</button>
                             <button class="btn btn-danger" onclick="deleteStudentPermanently(${s.id})">🗑️ مسح</button>
                         </div>
                     </div>
@@ -1106,7 +1358,7 @@
         function getCurrentWeekRange() {
             const now = new Date();
             const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const dayOfWeek = base.getDay(); // 0 = الأحد ... 1 = الإثنين
+            const dayOfWeek = base.getDay();
             const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
             const monday = new Date(base);
             monday.setDate(base.getDate() + diffToMonday);
@@ -1216,9 +1468,12 @@
             });
             listEl.innerHTML = filtered.length ? filtered.map(s => `
                 <div class="pick-item" onclick="selectStudentForPayment(${s.id})">
-                    <div>
-                        <strong>${s.name}</strong>
-                        <div style="font-size:0.78rem; color:#666;">${s.cin ? `CIN: ${s.cin}` : "بلا CIN"} • التسجيل: ${formatDateDMY(s.regDate)}</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        ${renderAvatarHtml(s)}
+                        <div>
+                            <strong>${s.name}</strong>
+                            <div style="font-size:0.78rem; color:#666;">${s.cin ? `CIN: ${s.cin}` : "بلا CIN"} • التسجيل: ${formatDateDMY(s.regDate)}</div>
+                        </div>
                     </div>
                     <span class="badge-code"># ${s.code}</span>
                 </div>
@@ -1339,8 +1594,11 @@
                 return `
                     <div class="card">
                         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                ${renderAvatarHtml(s)}
+                                <h3>${s.name}</h3>
+                            </div>
                             <span class="badge-code"># ${s.code}</span>
-                            <h3>${s.name}</h3>
                         </div>
                         <div style="display:flex; gap:10px;">
                             <button class="att-btn present ${st === "present" ? "active" : ""}" onclick="setAttStatus(${s.id}, 'present')">✓ حاضر</button>
@@ -1390,9 +1648,12 @@
                 return `
                     <div class="card">
                         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                            <div>
-                                <h3>${s.name} <small style="color:#555;">(${s.code})</small></h3>
-                                <p style="font-size:0.82rem; color:#666; margin-top:4px;">تاريخ تسليم الديبليوم: ${formatDateDMY(s.diplomaDate)}</p>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                ${renderAvatarHtml(s)}
+                                <div>
+                                    <h3>${s.name} <small style="color:#555;">(${s.code})</small></h3>
+                                    <p style="font-size:0.82rem; color:#666; margin-top:4px;">تاريخ تسليم الديبليوم: ${formatDateDMY(s.diplomaDate)}</p>
+                                </div>
                             </div>
                             <div style="display:flex; gap:6px;">
                                 ${wa ? `<a class="btn btn-whatsapp" style="padding:6px 10px; font-size:0.8rem;" target="_blank" href="https://wa.me/${wa}">واتساب</a>` : ""}
@@ -1436,7 +1697,10 @@
                             <span class="arch-pill">تسلم الديبليوم ✓ • في الأرشيف</span>
                             <span class="badge-code"># ${s.code}</span>
                         </div>
-                        <h3 style="margin-bottom:8px;">${s.name}</h3>
+                        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                            ${renderAvatarHtml(s)}
+                            <h3 style="margin:0;">${s.name}</h3>
+                        </div>
                         <div class="field-box"><span class="field-label">النمرة</span><span class="field-val">${s.phone || "—"}</span></div>
                         <div class="field-box"><span class="field-label">تاريخ تسليم الديبليوم</span><span class="field-val">${formatDateDMY(s.diplomaDate)}</span></div>
                         <div class="${allPaid ? "paid-all-box" : "field-box"}">
@@ -1478,6 +1742,11 @@
             submitStudentForm,
             deleteStudentPermanently,
             renderStudentsList,
+            refreshFormAvatarPreview,
+            handleAvatarUpload,
+            removeAvatarPhoto,
+            handleDocUpload,
+            removeFormDoc,
             setWalletFilter,
             renderWallet,
             openPaymentFlow,
