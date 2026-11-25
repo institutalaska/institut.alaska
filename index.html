@@ -2,7 +2,7 @@
 <html lang="ar" dir="rtl">
 <head>
     <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#1e3a8a">
+    <meta name="theme-color" content="#1e3a8a">
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -405,7 +405,7 @@
                     </div>
                     <div class="input-group">
                         <label>تاريخ التسجيل</label>
-                        <input type="date" id="f_regDate">
+                        <input type="date" id="f_regDate" onchange="onRegDateChange()">
                     </div>
                 </div>
             </div>
@@ -421,7 +421,7 @@
                     <div id="f_regFee" class="fee-box" onclick="toggleFee('reg')">رسوم التسجيل<br><small id="f_regFeeTxt">ما خلصش</small></div>
                     <div id="f_examFee" class="fee-box" onclick="toggleFee('exam')">رسوم الامتحان<br><small id="f_examFeeTxt">ما خلصش</small></div>
                 </div>
-                <label style="display:block; margin-bottom:6px; font-weight:bold; font-size:0.84rem;">الواجب الشهري - 12 شهر:</label>
+                <label style="display:block; margin-bottom:6px; font-weight:bold; font-size:0.84rem;">الواجب الشهري - 12 شهر (ابتداءً من شهر التسجيل):</label>
                 <div id="monthsGrid" class="grid-3" style="margin-bottom:10px;"></div>
                 <div class="grid-2">
                     <button type="button" class="btn btn-outline" onclick="clearMonths()">مسح الشهور</button>
@@ -467,12 +467,27 @@
         const cloudDocRef = doc(db, "alaska_app_data", "main_state");
 
         const TODAY_STR = "2026-11-24";
-        const MONTHS = [
-            "نونبر 2026", "دجنبر 2026", "يناير 2027",
-            "فبراير 2027", "مارس 2027", "أبريل 2027",
-            "ماي 2027", "يونيو 2027", "يوليوز 2027",
-            "غشت 2027", "شتنبر 2027", "أكتوبر 2027"
+        const MONTH_NAMES = [
+            "يناير", "فبراير", "مارس", "أبريل",
+            "ماي", "يونيو", "يوليوز", "غشت",
+            "شتنبر", "أكتوبر", "نونبر", "دجنبر"
         ];
+
+        function getStudentMonths(regDateStr) {
+            const baseStr = (regDateStr && /^\d{4}-\d{2}-\d{2}$/.test(regDateStr)) ? regDateStr : TODAY_STR;
+            const [yStr, mStr] = baseStr.split("-");
+            let year = parseInt(yStr, 10);
+            let monthIdx = parseInt(mStr, 10) - 1; // 0..11
+
+            const list = [];
+            for (let i = 0; i < 12; i++) {
+                const totalMonths = monthIdx + i;
+                const y = year + Math.floor(totalMonths / 12);
+                const m = totalMonths % 12;
+                list.push(`${MONTH_NAMES[m]} ${y}`);
+            }
+            return list;
+        }
 
         const STUDENTS_KEY = "alaska_students_full_v1";
         const PAYMENTS_KEY = "alaska_payments_full_v1";
@@ -529,7 +544,7 @@
                 payDate: "2026-06-01",
                 regFee: true,
                 examFee: true,
-                months: [...MONTHS],
+                months: getStudentMonths("2026-01-10"),
                 note: "Formation",
                 diploma: true,
                 diplomaDate: ""
@@ -689,9 +704,9 @@
             const diffDays = Math.floor((todayDate - dueDate) / (1000 * 60 * 60 * 24));
             if (diffDays <= 0) return 0;
 
-            const currentMonthLabel = `${MONTHS[month] || ""} ${year}`.trim();
+            const currentMonthLabel = `${MONTH_NAMES[month] || ""} ${year}`.trim();
             const paidMonths = Array.isArray(student.months) ? student.months : [];
-            const isPaidForMonth = paidMonths.some(m => m.includes(String(year)) && currentMonthLabel.includes(m.split(" ")[0]));
+            const isPaidForMonth = paidMonths.some(m => m === currentMonthLabel || (m.includes(String(year)) && currentMonthLabel.includes(m.split(" ")[0])));
             return isPaidForMonth ? 0 : diffDays;
         }
 
@@ -839,14 +854,25 @@
             document.getElementById("f_code").value = `${num}/26`;
         }
 
+        function onRegDateChange() {
+            const regVal = document.getElementById("f_regDate").value;
+            const validMonths = getStudentMonths(regVal);
+            formState.months = formState.months.filter(m => validMonths.includes(m));
+            buildMonthsGrid();
+            updateFormSummary();
+        }
+
         function buildMonthsGrid() {
             const grid = document.getElementById("monthsGrid");
             grid.innerHTML = "";
-            MONTHS.forEach(m => {
+            const regVal = document.getElementById("f_regDate").value;
+            const studentMonths = getStudentMonths(regVal);
+
+            studentMonths.forEach((m, idx) => {
                 const paid = formState.months.includes(m);
                 const div = document.createElement("div");
                 div.className = `month-box ${paid ? "paid" : ""}`;
-                div.innerHTML = `${m}<br><small>${paid ? "✓ خلص" : "ما خلصش"}</small>`;
+                div.innerHTML = `<small style="opacity:0.7;">شهر ${idx + 1}</small><br>${m}<br><small>${paid ? "✓ خلص" : "ما خلصش"}</small>`;
                 div.onclick = () => {
                     if (formState.months.includes(m)) formState.months = formState.months.filter(x => x !== m);
                     else formState.months.push(m);
@@ -878,13 +904,17 @@
         }
 
         function checkAllMonths() {
-            formState.months = [...MONTHS];
+            const regVal = document.getElementById("f_regDate").value;
+            formState.months = [...getStudentMonths(regVal)];
             buildMonthsGrid();
             updateFormSummary();
         }
 
         function updateFormSummary() {
-            const paid = formState.months.length + (formState.regFee ? 1 : 0) + (formState.examFee ? 1 : 0);
+            const regVal = document.getElementById("f_regDate").value;
+            const validSet = new Set(getStudentMonths(regVal));
+            const paidMonthsCount = (formState.months || []).filter(m => validSet.has(m)).length;
+            const paid = paidMonthsCount + (formState.regFee ? 1 : 0) + (formState.examFee ? 1 : 0);
             const rem = 14 - paid;
             const el = document.getElementById("f_summary");
             el.textContent = `خلص ${paid} من 14 • باقي ${rem}`;
@@ -954,6 +984,10 @@
             let dipDate = document.getElementById("f_diplomaDate").value;
             if (isDip && !dipDate) dipDate = TODAY_STR;
 
+            const regDateVal = document.getElementById("f_regDate").value;
+            const validMonthsSet = new Set(getStudentMonths(regDateVal));
+            const cleanMonths = [...new Set((formState.months || []).filter(m => validMonthsSet.has(m)))];
+
             const payload = {
                 code: document.getElementById("f_code").value.trim() || `${String(students.length + 1).padStart(2, "0")}/26`,
                 name,
@@ -962,11 +996,11 @@
                 niveau: document.getElementById("f_niveau").value.trim(),
                 massar: document.getElementById("f_massar").value.trim(),
                 dob: document.getElementById("f_dob").value,
-                regDate: document.getElementById("f_regDate").value,
+                regDate: regDateVal,
                 payDate: document.getElementById("f_payDate").value,
                 regFee: formState.regFee,
                 examFee: formState.examFee,
-                months: [...formState.months],
+                months: cleanMonths,
                 note: document.getElementById("f_note").value.trim(),
                 diploma: isDip,
                 diplomaDate: dipDate
@@ -1021,7 +1055,9 @@
             }
 
             box.innerHTML = active.map(s => {
-                const paid = (s.months ? s.months.length : 0) + (s.regFee ? 1 : 0) + (s.examFee ? 1 : 0);
+                const validSet = new Set(getStudentMonths(s.regDate));
+                const monthsCount = Array.isArray(s.months) ? s.months.filter(m => validSet.has(m)).length : 0;
+                const paid = monthsCount + (s.regFee ? 1 : 0) + (s.examFee ? 1 : 0);
                 const wa = toWaNumber(s.phone);
                 return `
                     <div class="card">
@@ -1122,7 +1158,7 @@
                 <div class="pick-item" onclick="selectStudentForPayment(${s.id})">
                     <div>
                         <strong>${s.name}</strong>
-                        <div style="font-size:0.78rem; color:#666;">${s.cin ? `CIN: ${s.cin}` : "بلا CIN"}</div>
+                        <div style="font-size:0.78rem; color:#666;">${s.cin ? `CIN: ${s.cin}` : "بلا CIN"} • التسجيل: ${formatDateDMY(s.regDate)}</div>
                     </div>
                     <span class="badge-code"># ${s.code}</span>
                 </div>
@@ -1151,10 +1187,11 @@
                 ? `<label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:6px;">الرسوم اللي باقيين ما مخلصينش:</label><div class="grid-2">${feeBtns.join("")}</div>`
                 : `<p style="font-size:0.84rem; color:var(--green-text); font-weight:bold;">✓ رسوم التسجيل والامتحان مخلصين.</p>`;
 
+            const studentCycleMonths = getStudentMonths(s.regDate);
             const paidMonths = Array.isArray(s.months) ? s.months : [];
-            const unpaidMonths = MONTHS.filter(m => !paidMonths.includes(m));
+            const unpaidMonths = studentCycleMonths.filter(m => !paidMonths.includes(m));
             monthsBox.innerHTML = unpaidMonths.length
-                ? `<label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:6px;">الشهور اللي باقيين ما مخلصينش:</label><div class="grid-3">${unpaidMonths.map(m => `<div class="check-tile ${selectedItemsToPay.months.includes(m) ? "selected" : ""}" onclick="togglePayMonth('${m}')">${m}</div>`).join("")}</div>`
+                ? `<label style="display:block; font-weight:bold; font-size:0.85rem; margin-bottom:6px;">الشهور اللي باقيين ما مخلصينش (حسب تاريخ التسجيل):</label><div class="grid-3">${unpaidMonths.map(m => `<div class="check-tile ${selectedItemsToPay.months.includes(m) ? "selected" : ""}" onclick="togglePayMonth('${m}')">${m}</div>`).join("")}</div>`
                 : `<p style="font-size:0.84rem; color:var(--green-text); font-weight:bold;">✓ كاع الشهور مخلصين.</p>`;
         }
 
@@ -1326,7 +1363,9 @@
             }
 
             box.innerHTML = filtered.map(s => {
-                const paid = (s.months ? s.months.length : 0) + (s.regFee ? 1 : 0) + (s.examFee ? 1 : 0);
+                const validSet = new Set(getStudentMonths(s.regDate));
+                const monthsCount = Array.isArray(s.months) ? s.months.filter(m => validSet.has(m)).length : 0;
+                const paid = monthsCount + (s.regFee ? 1 : 0) + (s.examFee ? 1 : 0);
                 const allPaid = paid === 14;
                 const wa = toWaNumber(s.phone);
                 return `
@@ -1366,6 +1405,7 @@
             addCustomTemplate,
             sendWhatsAppMsg,
             suggestCode,
+            onRegDateChange,
             toggleFee,
             clearMonths,
             checkAllMonths,
