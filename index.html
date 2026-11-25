@@ -228,7 +228,7 @@
 
                     <div id="dayPickerBox" class="input-group hidden" style="margin-top:8px;">
                         <label>موديفي ولا اختار النهار بالضبط باش تشوف شكون خلص فيه:</label>
-                        <input type="date" id="specificDayInput" value="2026-11-23" onchange="renderWallet()">
+                        <input type="date" id="specificDayInput" onchange="renderWallet()">
                     </div>
 
                     <p id="periodLabel" style="text-align:center; font-weight:bold; font-size:0.86rem; margin:10px 0;"></p>
@@ -267,8 +267,8 @@
                     </div>
 
                     <div class="input-group">
-                        <label>تاريخ النهار فاش خلص *</label>
-                        <input type="date" id="payDateInput" value="2026-11-24">
+                        <label>تاريخ النهار فاش خلص * (أوتوماتيكياً نهار اليوم، وبدلو إلا بغيتي نهار آخر)</label>
+                        <input type="date" id="payDateInput">
                     </div>
 
                     <div id="unpaidFeesSection" style="margin-bottom:12px;"></div>
@@ -290,8 +290,8 @@
                 <div id="attMainView">
                     <div class="card">
                         <div class="input-group" style="margin-bottom:4px;">
-                            <label>تاريخ النهار (كيتقترح نهار اليوم وتقدر تبدلو)</label>
-                            <input type="date" id="attDate" value="2026-11-24" onchange="renderAttendance()">
+                            <label>تاريخ النهار (كيتقترح نهار اليوم أوتوماتيكياً وتقدر تبدلو)</label>
+                            <input type="date" id="attDate" onchange="renderAttendance()">
                         </div>
                     </div>
                     <div id="attListBox"></div>
@@ -405,7 +405,7 @@
                     </div>
                     <div class="input-group">
                         <label>تاريخ التسجيل</label>
-                        <input type="date" id="f_regDate" onchange="onRegDateChange()">
+                        <input type="date" id="f_regDate" oninput="onRegDateChange()" onchange="onRegDateChange()" onblur="onRegDateChange()">
                     </div>
                 </div>
             </div>
@@ -414,7 +414,7 @@
                 <h4 style="color:var(--card-green); margin-bottom:10px;">2. حساب الخلاص والشهور</h4>
                 <div id="f_summary" class="summary-banner">خلص 0 من 14 • باقي 14</div>
                 <div class="input-group">
-                    <label>تاريخ الدفع ديال هاد الخلاص (manual)</label>
+                    <label>تاريخ الدفع ديال هاد الخلاص (أوتوماتيكياً نهار اليوم، وبدلو إلا بغيتي)</label>
                     <input type="date" id="f_payDate">
                 </div>
                 <div class="grid-2" style="margin-bottom:10px;">
@@ -436,7 +436,7 @@
                     <textarea id="f_note" rows="2" placeholder="مثلاً: ناقصاه وثيقة / يجيب ولي الأمر..."></textarea>
                 </div>
                 <div class="input-group">
-                    <label>تاريخ تسليم الدبلوم (manual)</label>
+                    <label>تاريخ تسليم الدبلوم (أوتوماتيكياً نهار اليوم عند التسليم، وبدلو إلا بغيتي)</label>
                     <input type="date" id="f_diplomaDate">
                 </div>
                 <label style="display:flex; align-items:center; gap:8px; font-weight:bold; font-size:0.88rem; background:#FFF9E6; padding:10px; border-radius:8px; border:1px solid var(--gold-color); cursor:pointer;">
@@ -466,7 +466,26 @@
         const db = getFirestore(app);
         const cloudDocRef = doc(db, "alaska_app_data", "main_state");
 
-        const TODAY_STR = "2026-11-24";
+        function getTodayStr() {
+            const now = new Date();
+            const y = now.getFullYear();
+            const m = String(now.getMonth() + 1).padStart(2, "0");
+            const d = String(now.getDate()).padStart(2, "0");
+            return `${y}-${m}-${d}`;
+        }
+
+        function initLiveDateInputs() {
+            const today = getTodayStr();
+            const attEl = document.getElementById("attDate");
+            if (attEl && !attEl.value) attEl.value = today;
+
+            const dayEl = document.getElementById("specificDayInput");
+            if (dayEl && !dayEl.value) dayEl.value = today;
+
+            const payEl = document.getElementById("payDateInput");
+            if (payEl && !payEl.value) payEl.value = today;
+        }
+
         const MONTH_NAMES = [
             "يناير", "فبراير", "مارس", "أبريل",
             "ماي", "يونيو", "يوليوز", "غشت",
@@ -474,10 +493,10 @@
         ];
 
         function getStudentMonths(regDateStr) {
-            const baseStr = (regDateStr && /^\d{4}-\d{2}-\d{2}$/.test(regDateStr)) ? regDateStr : TODAY_STR;
+            const baseStr = (regDateStr && /^\d{4}-\d{2}-\d{2}$/.test(regDateStr)) ? regDateStr : getTodayStr();
             const [yStr, mStr] = baseStr.split("-");
             let year = parseInt(yStr, 10);
-            let monthIdx = parseInt(mStr, 10) - 1; // 0..11
+            let monthIdx = parseInt(mStr, 10) - 1;
 
             const list = [];
             for (let i = 0; i < 12; i++) {
@@ -632,6 +651,7 @@
                     document.getElementById('loginPage').classList.add('hidden');
                     document.getElementById('appPage').classList.remove('hidden');
                     document.getElementById('errorMsg').style.display = 'none';
+                    initLiveDateInputs();
                     renderEverything();
                 } else {
                     document.getElementById('errorMsg').style.display = 'block';
@@ -673,6 +693,7 @@
         }
 
         function renderEverything() {
+            initLiveDateInputs();
             const dipStudents = students.filter(s => Boolean(s.diploma));
             document.getElementById("dipCountBadge").textContent = dipStudents.length;
             document.getElementById("archCountBadge").textContent = dipStudents.length;
@@ -689,12 +710,13 @@
         /* ---------------- التنبيهات + الملاحظات + الرسائل الواجدة ---------------- */
         function getPaymentOverdueDays(student) {
             if (!student.regDate) return 0;
+            const todayStr = getTodayStr();
             const regParts = student.regDate.split("-");
-            const todayParts = TODAY_STR.split("-");
+            const todayParts = todayStr.split("-");
             if (regParts.length !== 3 || todayParts.length !== 3) return 0;
 
             const regDayNum = parseInt(regParts[2], 10);
-            const todayDate = new Date(TODAY_STR + "T00:00:00");
+            const todayDate = new Date(todayStr + "T00:00:00");
             const year = todayDate.getFullYear();
             const month = todayDate.getMonth();
             const maxDayInMonth = new Date(year, month + 1, 0).getDate();
@@ -924,6 +946,7 @@
         function openStudentForm(mode, id = null) {
             formMode = mode;
             editingStudentId = id;
+            const todayStr = getTodayStr();
             document.getElementById("formModal").classList.remove("hidden");
 
             if (mode === "create") {
@@ -935,8 +958,8 @@
                 document.getElementById("f_niveau").value = "";
                 document.getElementById("f_massar").value = "";
                 document.getElementById("f_dob").value = "";
-                document.getElementById("f_regDate").value = TODAY_STR;
-                document.getElementById("f_payDate").value = TODAY_STR;
+                document.getElementById("f_regDate").value = todayStr;
+                document.getElementById("f_payDate").value = todayStr;
                 document.getElementById("f_note").value = "";
                 document.getElementById("f_diplomaDate").value = "";
                 document.getElementById("f_diploma").checked = false;
@@ -952,8 +975,8 @@
                 document.getElementById("f_niveau").value = s.niveau || "";
                 document.getElementById("f_massar").value = s.massar || "";
                 document.getElementById("f_dob").value = s.dob || "";
-                document.getElementById("f_regDate").value = s.regDate || "";
-                document.getElementById("f_payDate").value = s.payDate || "";
+                document.getElementById("f_regDate").value = s.regDate || todayStr;
+                document.getElementById("f_payDate").value = todayStr;
                 document.getElementById("f_note").value = s.note || "";
                 document.getElementById("f_diplomaDate").value = s.diplomaDate || "";
                 document.getElementById("f_diploma").checked = Boolean(s.diploma);
@@ -980,11 +1003,12 @@
                 return;
             }
 
+            const todayStr = getTodayStr();
             const isDip = document.getElementById("f_diploma").checked;
             let dipDate = document.getElementById("f_diplomaDate").value;
-            if (isDip && !dipDate) dipDate = TODAY_STR;
+            if (isDip && !dipDate) dipDate = todayStr;
 
-            const regDateVal = document.getElementById("f_regDate").value;
+            const regDateVal = document.getElementById("f_regDate").value || todayStr;
             const validMonthsSet = new Set(getStudentMonths(regDateVal));
             const cleanMonths = [...new Set((formState.months || []).filter(m => validMonthsSet.has(m)))];
 
@@ -997,7 +1021,7 @@
                 massar: document.getElementById("f_massar").value.trim(),
                 dob: document.getElementById("f_dob").value,
                 regDate: regDateVal,
-                payDate: document.getElementById("f_payDate").value,
+                payDate: document.getElementById("f_payDate").value || todayStr,
                 regFee: formState.regFee,
                 examFee: formState.examFee,
                 months: cleanMonths,
@@ -1079,31 +1103,67 @@
         }
 
         /* ---------------- المحفظة وسجل الخلاص ---------------- */
+        function getCurrentWeekRange() {
+            const now = new Date();
+            const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const dayOfWeek = base.getDay(); // 0 = الأحد ... 1 = الإثنين
+            const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const monday = new Date(base);
+            monday.setDate(base.getDate() + diffToMonday);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+
+            const toIso = (dt) => {
+                const y = dt.getFullYear();
+                const m = String(dt.getMonth() + 1).padStart(2, "0");
+                const d = String(dt.getDate()).padStart(2, "0");
+                return `${y}-${m}-${d}`;
+            };
+            return { startIso: toIso(monday), endIso: toIso(sunday) };
+        }
+
         function setWalletFilter(f) {
             walletFilter = f;
             document.getElementById("f-week").classList.toggle("active", f === "week");
             document.getElementById("f-month").classList.toggle("active", f === "month");
             document.getElementById("f-day").classList.toggle("active", f === "day");
             document.getElementById("dayPickerBox").classList.toggle("hidden", f !== "day");
+            if (f === "day") {
+                const dayInput = document.getElementById("specificDayInput");
+                if (!dayInput.value) dayInput.value = getTodayStr();
+            }
             renderWallet();
         }
 
         function getFilteredPayments() {
+            const todayStr = getTodayStr();
             if (walletFilter === "week") {
-                return payments.filter(p => p.date >= "2026-11-23" && p.date <= "2026-11-29");
+                const { startIso, endIso } = getCurrentWeekRange();
+                return payments.filter(p => p.date >= startIso && p.date <= endIso);
             }
             if (walletFilter === "month") {
-                return payments.filter(p => p.date && p.date.startsWith("2026-11"));
+                const monthPrefix = todayStr.slice(0, 7);
+                return payments.filter(p => p.date && p.date.startsWith(monthPrefix));
             }
-            const d = document.getElementById("specificDayInput").value;
+            const d = document.getElementById("specificDayInput").value || todayStr;
             return payments.filter(p => p.date === d);
         }
 
         function renderWallet() {
+            const todayStr = getTodayStr();
+            const [ty, tm] = todayStr.split("-");
             const label = document.getElementById("periodLabel");
-            if (walletFilter === "week") label.textContent = "هاد السيمانة: من 23/11/2026 حتى 29/11/2026";
-            else if (walletFilter === "month") label.textContent = "هاد الشهر: نونبر 2026";
-            else label.textContent = `النهار المختار بالضبط: ${formatDateDMY(document.getElementById("specificDayInput").value)}`;
+
+            if (walletFilter === "week") {
+                const { startIso, endIso } = getCurrentWeekRange();
+                label.textContent = `هاد السيمانة: من ${formatDateDMY(startIso)} حتى ${formatDateDMY(endIso)}`;
+            } else if (walletFilter === "month") {
+                const mLabel = `${MONTH_NAMES[parseInt(tm, 10) - 1] || ""} ${ty}`.trim();
+                label.textContent = `هاد الشهر: ${mLabel}`;
+            } else {
+                const dVal = document.getElementById("specificDayInput").value || todayStr;
+                label.textContent = `النهار المختار بالضبط: ${formatDateDMY(dVal)}`;
+            }
 
             const list = getFilteredPayments();
             document.getElementById("txCount").textContent = list.length;
@@ -1173,7 +1233,7 @@
             document.getElementById("stepPickStudent").classList.add("hidden");
             document.getElementById("stepPayDetails").classList.remove("hidden");
             document.getElementById("selectedStudentTitle").textContent = `${s.name} (# ${s.code})`;
-            document.getElementById("payDateInput").value = TODAY_STR;
+            document.getElementById("payDateInput").value = getTodayStr();
             renderUnpaidForStudent(s);
         }
 
@@ -1212,6 +1272,7 @@
         function confirmPayment() {
             const idx = students.findIndex(x => x.id === pickedStudentId);
             if (idx === -1) return;
+            const todayStr = getTodayStr();
             const items = [];
             if (selectedItemsToPay.regFee) { students[idx].regFee = true; items.push("رسوم التسجيل"); }
             if (selectedItemsToPay.examFee) { students[idx].examFee = true; items.push("رسوم الامتحان"); }
@@ -1223,7 +1284,8 @@
                 alert("كوشي على الأقل حاجة وحدة خلصها!");
                 return;
             }
-            const payDate = document.getElementById("payDateInput").value || TODAY_STR;
+            const payDate = document.getElementById("payDateInput").value || todayStr;
+            students[idx].payDate = payDate;
             payments.push({ id: Date.now(), studentId: students[idx].id, studentName: students[idx].name, date: payDate, items });
             saveAll();
             backToWallet();
@@ -1237,7 +1299,7 @@
         }
 
         function setAttStatus(studentId, status) {
-            const d = document.getElementById("attDate").value || TODAY_STR;
+            const d = document.getElementById("attDate").value || getTodayStr();
             if (!attendance[d]) attendance[d] = {};
             attendance[d][studentId] = status;
             saveAll();
@@ -1266,7 +1328,7 @@
             const records = getAbsenceRecords();
             document.getElementById("absArchiveCount").textContent = records.length;
 
-            const d = document.getElementById("attDate").value || TODAY_STR;
+            const d = document.getElementById("attDate").value || getTodayStr();
             const dayMap = attendance[d] || {};
             const threshold = parseInt(document.getElementById("streakThreshold")?.value || "3", 10);
             const active = students.filter(s => !s.diploma);
@@ -1394,6 +1456,8 @@
                 `;
             }).join("");
         }
+
+        initLiveDateInputs();
 
         Object.assign(window, {
             checkLogin,
