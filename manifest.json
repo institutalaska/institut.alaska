@@ -10,15 +10,15 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://institutalaska.github.io/institut.alaska/favicon.ico",
+      "src": "https://institutalaska.github.io/institut.alaska/Logo.jpg",
       "sizes": "192x192",
-      "type": "image/x-icon",
+      "type": "image/jpeg",
       "purpose": "any"
     },
     {
-      "src": "https://institutalaska.github.io/institut.alaska/favicon.ico",
+      "src": "https://institutalaska.github.io/institut.alaska/Logo.jpg",
       "sizes": "512x512",
-      "type": "image/x-icon",
+      "type": "image/jpeg",
       "purpose": "any"
     }
   ]
